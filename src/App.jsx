@@ -13,10 +13,14 @@ import './App.css';
 const App = () => {
     const { loaded, busy } = useData();
 
-    return (<>
+    return (<div className="app">
         <Header />
-        <div style={{ padding: '20px 30px' }}>
-            {busy ? <div className="loading-spinner"></div>
+        <main className="app__main">
+            {busy
+                ? <div className="loading-screen">
+                    <div className="loading-screen__spinner"></div>
+                    <span className="loading-screen__label">Loading data…</span>
+                </div>
                 : !loaded ? <LoadData />
                     : <Routes>
                         <Route path="/" element={<ListSheet />} />
@@ -26,8 +30,8 @@ const App = () => {
                         <Route path="/problem/edit/:sheetId/:topicId/:problemId/:sheet/:topic" element={<EditProblem />} />
                         <Route path="*" element={<ListSheet />} />
                     </Routes>}
-        </div>
-    </>);
+        </main>
+    </div>);
 };
 
 export default App;

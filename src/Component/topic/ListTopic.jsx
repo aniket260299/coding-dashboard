@@ -2,9 +2,12 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AgGridReact } from "ag-grid-react";
 import { useData } from "../../data/DataContext";
-import { decodeEscapeCharaters, encodeEscapeCharaters, getNextPosition } from "../common/Utils";
+import { decodeEscapeCharaters, encodeEscapeCharaters, getNextPosition, gridHeightForRows } from "../common/Utils";
+import PageHeader from "../common/PageHeader";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
+
+const NO_ROWS = '<span class="grid-empty">No topics in this sheet yet — use <b>New topic</b> to add one.</span>';
 
 const ListTopic = () => {
     const { data, upsertTopic, deleteTopic } = useData();
@@ -31,7 +34,7 @@ const ListTopic = () => {
     const remove = (param) => {
         const confirmDelete = param.data.id
             ? window.confirm('Delete this topic along with all of its problems?')
-            : window.confirm('Are you sure you want to delete this item?');
+            : window.confirm('Remove this unsaved row?');
         if (!confirmDelete) return;
         if (param.data.id) {
             deleteTopic(param.data.id);
@@ -73,21 +76,26 @@ const ListTopic = () => {
         const openURL = param?.data?.id
             ? "/problem/" + sheetId + "/" + param.data.id + "/" + sheet + "/" + encodeEscapeCharaters(param.data.topic)
             : "/";
-        return <>
-            <Link to={openURL} style={{ textDecoration: 'none', color: 'green' }}> Open </Link>
-            <Link onClick={() => startEditButton(param)} style={{ textDecoration: 'none', color: 'blue', padding: '10%' }}> Edit </Link>
-            <Link onClick={() => remove(param)} style={{ textDecoration: 'none', color: 'red' }}> Delete </Link>
-        </>
+        return <div className="action-cell">
+            <Link to={openURL} className="action-cell__btn action-cell__btn--open">Open</Link>
+            <button type="button" className="action-cell__btn action-cell__btn--edit"
+                onClick={() => startEditButton(param)}>Edit</button>
+            <button type="button" className="action-cell__btn action-cell__btn--danger"
+                onClick={() => remove(param)}>Delete</button>
+        </div>;
     }
 
     const gridOptions = {
         columnDefs: [
-            { headerName: '#', field: 'position', sort: 'asc' },
-            { field: 'topic', flex: 1 },
+            { headerName: '#', field: 'position', sort: 'asc', width: 90 },
+            { headerName: 'Topic', field: 'topic', flex: 1, minWidth: 220 },
             {
                 headerName: 'Action',
                 cellRenderer: Action,
-                editable: false
+                editable: false,
+                width: 230,
+                minWidth: 230,
+                maxWidth: 230
             }
         ],
 
@@ -98,31 +106,45 @@ const ListTopic = () => {
         }
     }
 
-    return (<>
-        <>
-            <Link onClick={addDummyRecord} className="float-end" style={{ textDecoration: 'none', color: 'black', paddingLeft: '10px' }}>Add Record</Link>
-            {editing &&
-                <Link onClick={stopEditing} className="float-end" style={{ textDecoration: 'none', color: 'blue' }}>Stop Editing</Link>}
-            <Link to="/" style={{ textDecoration: 'none', color: 'blue' }}><strong>Sheets</strong></Link>
-            <strong>{" / " + decodeEscapeCharaters(sheet)}</strong>
-            <hr size="4" color="grey" />
-        </>
-
-        <div className="ag-theme-alpine" style={{ height: 600 }}>
-            <AgGridReact
-                ref={gridRef}
-                rowData={rowData}
-                columnDefs={gridOptions.columnDefs}
-                defaultColDef={gridOptions.defaultColDef}
-                suppressMenuHide={true}
-                animateRows={true}
-                getRowId={(params) => params.data.id ? 'topic-' + params.data.id : 'draft-' + params.data.position}
-                editType={'fullRow'}
-                onRowValueChanged={onRowValueChanged}
-                onCellEditingStarted={() => setEditing(true)}
+    return (
+        <div className="page">
+            <PageHeader
+                parents={[{ label: 'Sheets', to: '/' }]}
+                title={decodeEscapeCharaters(sheet)}
+                subtitle={topics.length
+                    ? `${topics.length} topic${topics.length === 1 ? '' : 's'} in this sheet · double-click a cell to edit`
+                    : 'No topics in this sheet yet.'}
+                actions={<>
+                    {editing && <button type="button" className="btn btn-ghost" onClick={stopEditing}>
+                        Stop editing
+                    </button>}
+                    <button type="button" className="btn btn-primary" onClick={addDummyRecord}
+                        disabled={drafts.length > 0}>
+                        + New topic
+                    </button>
+                </>}
             />
+
+            <div className="panel panel--flush">
+                <div className="ag-theme-alpine grid-host"
+                    style={{ height: gridHeightForRows(rowData.length) }}>
+                    <AgGridReact
+                        ref={gridRef}
+                        rowData={rowData}
+                        columnDefs={gridOptions.columnDefs}
+                        defaultColDef={gridOptions.defaultColDef}
+                        suppressMenuHide={true}
+                        animateRows={true}
+                        overlayNoRowsTemplate={NO_ROWS}
+                        getRowId={(params) => params.data.id ? 'topic-' + params.data.id : 'draft-' + params.data.position}
+                        editType={'fullRow'}
+                        onRowValueChanged={onRowValueChanged}
+                        onCellEditingStarted={() => setEditing(true)}
+                    />
+                </div>
+            </div>
         </div>
-    </>);
+    );
 }
 
 export default ListTopic;

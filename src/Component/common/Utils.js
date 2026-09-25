@@ -36,3 +36,12 @@ export function getDifficulty(level) {
   if (level === 2) return { label: 'Medium', color: 'orange' };
   return { label: 'Hard', color: 'red' };
 }
+
+// Grid height that hugs the rows: compact for a handful of records,
+// capped so long lists scroll instead of stretching the page.
+export function gridHeightForRows(rowCount) {
+  const headerHeight = 46;
+  const rowHeight = 53;
+  const height = headerHeight + Math.max(rowCount, 1) * rowHeight + 2;
+  return Math.min(780, Math.max(240, height));
+}

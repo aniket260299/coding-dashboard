@@ -1,6 +1,5 @@
 import React, { useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Button, Navbar, NavbarBrand } from 'reactstrap';
 import { useData } from '../data/DataContext';
 import { pickFile, supportsFilePicker } from '../data/fileIO';
 
@@ -29,24 +28,54 @@ const Header = () => {
     };
 
     return (
-        <div style={{ padding: '5px 15px' }}>
-            <Navbar color="light" expand="md">
-                <NavbarBrand tag={Link} to="/">Coding Dashboard</NavbarBrand>
-                <div className="ms-auto d-flex align-items-center gap-3">
-                    {loaded && <span className="text-muted small">
-                        {fileName}{dirty ? ' • unsaved changes' : ''}
-                    </span>}
-                    {loaded && <Button size="sm" color="primary" onClick={save}>Save</Button>}
-                    <Button size="sm" color="secondary" outline onClick={pickDataFile}>Load file</Button>
+        <header className="topbar">
+            <div className="topbar__inner">
+                <Link to="/" className="brand" aria-label="Coding Dashboard - home">
+                    <span className="brand__mark" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="16 18 22 12 16 6" />
+                            <polyline points="8 6 2 12 8 18" />
+                        </svg>
+                    </span>
+                    <span className="brand__text">Coding Dashboard</span>
+                </Link>
+
+                <div className="topbar__actions">
+                    {loaded && (
+                        <span className={`file-chip ${dirty ? 'file-chip--dirty' : ''}`}
+                            title={dirty ? 'You have unsaved changes' : 'All changes saved'}>
+                            <span className="file-chip__dot" aria-hidden="true" />
+                            <span className="file-chip__name">{fileName}</span>
+                            {dirty && <span>· unsaved</span>}
+                        </span>
+                    )}
+                    {loaded && (
+                        <button type="button" className="btn btn-primary btn-sm" onClick={save}>
+                            Save
+                        </button>
+                    )}
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={pickDataFile}>
+                        Load file
+                    </button>
                 </div>
-            </Navbar>
-            {(status || error) &&
-                <div className={`alert py-1 px-3 mb-0 d-flex align-items-center gap-2 small ${error ? 'alert-warning' : 'alert-info'}`} role="alert">
-                    <span>{error || status}</span>
-                    <button type="button" className="btn-close float-end" aria-label="Close" onClick={dismissMessages}></button>
-                </div>}
-            <input style={{ display: 'none' }} ref={inputFile} onChange={handleFileInput} type="file" accept=".txt,.json,application/json,text/plain" />
-        </div>
+            </div>
+
+            {(status || error) && (
+                <div className={`toast-bar ${error ? 'toast-bar--error' : ''}`} role="status">
+                    <div className="toast-bar__inner">
+                        <span>{error || status}</span>
+                        <button type="button" className="toast-bar__close"
+                            aria-label="Dismiss message" onClick={dismissMessages}>
+                            ✕
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            <input style={{ display: 'none' }} ref={inputFile} onChange={handleFileInput}
+                type="file" accept=".txt,.json,application/json,text/plain" />
+        </header>
     );
 };
 

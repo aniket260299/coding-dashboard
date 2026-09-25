@@ -1,5 +1,4 @@
 import React, { useRef, useState } from 'react';
-import { Button } from 'reactstrap';
 import { useData } from '../data/DataContext';
 import { fileFromDataTransfer, pickFile, supportsFilePicker } from '../data/fileIO';
 
@@ -43,28 +42,44 @@ const LoadData = () => {
     };
 
     return (
-        <div className="load-data">
-            <div
-                className={`load-data__drop ${dragging ? 'load-data__drop--active' : ''}`}
-                onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
-                onDragLeave={() => setDragging(false)}
-                onDrop={handleDrop}
-            >
-                <h4>Open a data file</h4>
-                <p className="text-muted mb-3">
-                    No login - this dashboard reads your data from a file.<br />
-                    Choose a file, or drag and drop it here.
-                </p>
-                <div className="d-flex justify-content-center gap-2 mb-3">
-                    <Button color="primary" onClick={pickDataFile}>Choose data file</Button>
-                    <Button color="link" onClick={loadSample}>Load bundled sample data</Button>
+        <div className="empty-state">
+            <div className="empty-state__card">
+                <div
+                    className={`empty-state__drop ${dragging ? 'empty-state__drop--active' : ''}`}
+                    onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
+                    onDragLeave={() => setDragging(false)}
+                    onDrop={handleDrop}
+                >
+                    <div className="empty-state__icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="17 8 12 3 7 8" />
+                            <line x1="12" y1="3" x2="12" y2="15" />
+                        </svg>
+                    </div>
+                    <h1>Open a data file</h1>
+                    <p>
+                        No login - this dashboard reads everything from a file you choose.
+                        Pick a file, or drag and drop it right here.
+                    </p>
+                    <div className="empty-state__actions">
+                        <button type="button" className="btn btn-primary" onClick={pickDataFile}>
+                            Choose data file
+                        </button>
+                        <button type="button" className="btn btn-ghost" onClick={loadSample}>
+                            Load bundled sample data
+                        </button>
+                    </div>
+                    <input style={{ display: 'none' }} ref={inputFile} onChange={handleFileInput}
+                        type="file" accept=".txt,.json,application/json,text/plain" />
+
+                    <details className="format-details">
+                        <summary>▸ Expected JSON format</summary>
+                        <pre>{SAMPLE_FORMAT}</pre>
+                    </details>
                 </div>
-                <input style={{ display: 'none' }} ref={inputFile} onChange={handleFileInput} type="file" accept=".txt,.json,application/json,text/plain" />
-                <small className="text-muted">
-                    Expected format: a JSON export with <code>sheets</code>, <code>topics</code> and <code>problems</code>.
-                </small>
             </div>
-            <pre className="load-data__format">{SAMPLE_FORMAT}</pre>
         </div>
     );
 };
