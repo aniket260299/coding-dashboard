@@ -1,0 +1,54 @@
+@keyframes spinner {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-spinner {
+  width: 100px;
+  height: 100px;
+  border: 20px solid #f3f3f3;
+  border-top: 20px solid #383636;
+  border-radius: 50%;
+  animation: spinner 1.5s linear infinite;
+  margin: auto;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  position: fixed;
+}
+
+.load-data {
+  max-width: 760px;
+  margin: 40px auto;
+  text-align: center;
+}
+
+.load-data__drop {
+  border: 2px dashed #adb5bd;
+  border-radius: 12px;
+  padding: 40px 24px;
+  background: #f8f9fa;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.load-data__drop--active {
+  border-color: #0d6efd;
+  background: #e7f1ff;
+}
+
+.load-data__format {
+  margin-top: 24px;
+  padding: 16px;
+  text-align: left;
+  font-size: 12px;
+  background: #212529;
+  color: #e9ecef;
+  border-radius: 8px;
+  overflow-x: auto;
+}
