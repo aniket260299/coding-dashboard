@@ -37,27 +37,24 @@ function assignIds(list) {
   });
 }
 
-function assignPositions(list) {
-  const used = new Set();
-  let max = 0;
+// Positions are relative to the parent: topics restart at 1 inside every sheet
+// and problems restart at 1 inside every topic. They are never unique across
+// the whole list, so each group is sorted by its current position (ties keep
+// the file order) and renumbered 1..n on its own.
+function assignPositions(list, groupKey) {
+  const groups = new Map();
   list.forEach((item) => {
-    const position = Number(item.position);
-    if (Number.isFinite(position) && !used.has(position)) {
-      item.position = position;
-      used.add(position);
-      max = Math.max(max, position);
-    } else {
-      item.position = null;
-    }
+    const key = groupKey ? item[groupKey] : null;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(item);
   });
-  let next = max + 1;
-  list.forEach((item) => {
-    if (item.position == null) {
-      while (used.has(next)) next += 1;
-      item.position = next;
-      used.add(next);
-      next += 1;
-    }
+  groups.forEach((group) => {
+    const ordered = group
+      .map((item, index) => ({ item, index, position: asNumber(item.position) }))
+      .sort((a, b) => a.position - b.position || a.index - b.index);
+    ordered.forEach(({ item }, index) => {
+      item.position = index + 1;
+    });
   });
 }
 
@@ -111,8 +108,8 @@ export function normalizeData(raw) {
   assignIds(topics);
   assignIds(problems);
   assignPositions(sheets);
-  assignPositions(topics);
-  assignPositions(problems);
+  assignPositions(topics, 'sheetId');
+  assignPositions(problems, 'topicId');
 
   return { sheets, topics, problems };
 }
