@@ -53,11 +53,20 @@
 
 /* --- base ------------------------------------------------------------ */
 
+/* Replaces the reset Bootstrap used to ship (box-sizing + body margin):
+   without it every width:100% + padding element overflows the viewport. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 html {
   color-scheme: dark;
 }
 
 body {
+  margin: 0;
   min-height: 100vh;
   font-family: var(--font-sans);
   background-color: var(--bg);
@@ -664,104 +673,60 @@ a.crumbs__item:hover {
   margin-bottom: 0;
 }
 
-/* --- data grid ------------------------------------------------------- */
+/* --- data table (native, replaces AG Grid) ------------------------------ */
 
-.grid-host.ag-theme-alpine {
-  --ag-font-family: var(--font-sans);
-  --ag-font-size: 0.875rem;
-  --ag-background-color: var(--surface-2);
-  --ag-foreground-color: var(--text);
-  --ag-header-background-color: rgba(9, 12, 19, 0.5);
-  --ag-header-foreground-color: var(--text-faint);
-  --ag-odd-row-background-color: rgba(255, 255, 255, 0.014);
-  --ag-row-hover-color: rgba(109, 140, 255, 0.09);
-  --ag-selected-row-background-color: rgba(109, 140, 255, 0.14);
-  --ag-border-color: var(--border-strong);
-  --ag-secondary-border-color: var(--border);
-  --ag-row-border-color: var(--border);
-  --ag-input-focus-border-color: var(--accent);
-  --ag-input-focus-box-shadow: 0 0 0 2px rgba(109, 140, 255, 0.35);
-  --ag-range-selection-border-color: var(--accent);
-  --ag-checkbox-checked-color: var(--accent);
-  --ag-control-panel-background-color: var(--surface-3);
-  --ag-card-radius: 10px;
-  --ag-card-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.9);
-  --ag-row-height: 52px;
-  --ag-header-height: 46px;
-  --ag-cell-horizontal-padding: 18px;
-
-  height: clamp(340px, 64vh, 780px);
+.table-scroll {
+  overflow-x: auto;
 }
 
-.grid-host.ag-theme-alpine .ag-root-wrapper {
+.table-host {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
   background: var(--surface-2);
-  border: 0;
 }
 
-.grid-host.ag-theme-alpine .ag-header {
-  border-bottom: 1px solid var(--border-strong);
-}
-
-.grid-host.ag-theme-alpine .ag-header-cell-text {
+.table-host thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  text-align: left;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
+  color: var(--text-faint);
+  background: rgba(9, 12, 19, 0.5);
+  border-bottom: 1px solid var(--border-strong);
+  padding: 12px 18px;
+  white-space: nowrap;
 }
 
-.grid-host.ag-theme-alpine .ag-header-cell-label {
-  gap: 6px;
+.table-host tbody td {
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
 }
 
-.grid-host.ag-theme-alpine .ag-cell {
-  border: 1px solid transparent;
-}
-
-/* Cell renderers that hold a pill/label rather than text. */
-.grid-host.ag-theme-alpine .ag-cell.cell-centered {
-  display: flex;
-  align-items: center;
-}
-
-.grid-host.ag-theme-alpine .ag-cell.ag-cell-inline-editing {
-  border-color: var(--accent);
-}
-
-.grid-host.ag-theme-alpine .ag-row {
-  transition: background-color 0.15s ease;
-}
-
-.grid-host.ag-theme-alpine .ag-row.ag-row-odd {
+.table-host tbody tr:nth-child(odd) {
   background-color: rgba(255, 255, 255, 0.014);
 }
 
-.grid-host.ag-theme-alpine .ag-row.ag-row-odd:hover,
-.grid-host.ag-theme-alpine .ag-row:hover {
+.table-host tbody tr:hover {
   background-color: rgba(109, 140, 255, 0.09);
 }
 
-.grid-host.ag-theme-alpine .ag-checkbox-input-wrapper {
-  transform: scale(0.9);
+.table-host tbody tr:last-child td {
+  border-bottom: 0;
 }
 
-.grid-host.ag-theme-alpine .ag-paging-panel {
-  border-top: 1px solid var(--border);
-  color: var(--text-dim);
+.table-host .cell-centered {
+  text-align: left;
 }
 
-.grid-host.ag-theme-alpine .ag-sort-ascending-icon,
-.grid-host.ag-theme-alpine .ag-sort-descending-icon,
-.grid-host.ag-theme-alpine .ag-column-select-icon,
-.grid-host.ag-theme-alpine .ag-icon {
-  color: var(--text-faint);
-}
-
-.grid-host.ag-theme-alpine .ag-header-icon {
-  opacity: 0.55;
-}
-
-.grid-host.ag-theme-alpine .ag-header-icon:hover {
-  opacity: 1;
+.table-empty {
+  padding: 32px 20px;
+  text-align: center;
 }
 
 .grid-empty {
@@ -778,6 +743,23 @@ a.crumbs__item:hover {
   color: var(--text);
 }
 
+.panel__more {
+  display: flex;
+  justify-content: center;
+  padding: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.search-input {
+  max-width: 220px;
+}
+
+.form-control--sm {
+  padding: 0.34rem 0.6rem;
+  font-size: 0.85rem;
+  border-radius: 8px;
+}
+
 /* --- action cell ----------------------------------------------------- */
 
 .action-cell {
@@ -785,8 +767,6 @@ a.crumbs__item:hover {
   align-items: center;
   gap: 4px;
   height: 100%;
-  /* .ag-cell sets a line-height of the full row height - reset it so the
-     buttons keep their own compact height. */
   line-height: normal;
 }
 
@@ -978,36 +958,28 @@ a.crumbs__item:hover {
   background: rgba(9, 12, 19, 0.55);
 }
 
-/* Keep the editor inside the dark palette instead of Monokai's brown. */
+/* CodeMirror 6 host — lazy-loaded, dark palette. */
 
-.code-panel .ace_editor {
-  background-color: var(--surface-2) !important;
+.code-panel .cm-host {
+  background: var(--surface-2);
 }
 
-.code-panel .ace_editor .ace_gutter {
-  background: rgba(9, 12, 19, 0.55) !important;
-  color: var(--text-faint) !important;
+.code-panel .cm-editor {
+  background-color: var(--surface-2);
 }
 
-.code-panel .ace_gutter .ace_gutter-active-line {
-  background: rgba(109, 140, 255, 0.14) !important;
-}
-
-.code-panel .ace_marker-layer .ace_active-line {
-  background: rgba(109, 140, 255, 0.07) !important;
-}
-
-.code-panel .ace_selection {
-  background: rgba(109, 140, 255, 0.32) !important;
-}
-
-.code-panel .ace_comment {
-  color: #8b97ae !important;
-}
-
-.code-panel .ace_gutter-cell.ace_breakpoint {
-  background: var(--danger-soft) !important;
-  color: var(--danger) !important;
+.code-panel .cm-fallback {
+  margin: 0;
+  padding: 16px 18px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text);
+  background: var(--surface-2);
+  max-height: 640px;
+  overflow: auto;
 }
 
 /* --- forms ----------------------------------------------------------- */

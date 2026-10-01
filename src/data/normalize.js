@@ -3,38 +3,50 @@
 // and typed fields. Nothing is dropped - orphaned rows are kept as-is.
 
 export const asNumber = (value, fallback = 0) => {
-  const number = Number(value);
+  const number = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(number) ? number : fallback;
 };
 
 export const asText = (value) => (value == null ? '' : String(value));
 
-export function nextId(list) {
-  return list.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0) + 1;
+export function nextId(list, maxId) {
+  if (maxId != null) return maxId + 1;
+  let max = 0;
+  for (let i = 0; i < list.length; i++) {
+    const id = list[i].id;
+    if (typeof id === 'number' && id > max) max = id;
+    else {
+      const n = Number(id) || 0;
+      if (n > max) max = n;
+    }
+  }
+  return max + 1;
 }
 
 function assignIds(list) {
   const used = new Set();
   let max = 0;
-  list.forEach((item) => {
+  for (let i = 0; i < list.length; i++) {
+    const item = list[i];
     const id = Number(item.id);
     if (Number.isInteger(id) && id > 0 && !used.has(id)) {
       item.id = id;
       used.add(id);
-      max = Math.max(max, id);
+      if (id > max) max = id;
     } else {
-      item.id = null;
+      item.id = 0;
     }
-  });
+  }
   let next = max + 1;
-  list.forEach((item) => {
-    if (item.id == null) {
+  for (let i = 0; i < list.length; i++) {
+    const item = list[i];
+    if (item.id === 0) {
       while (used.has(next)) next += 1;
       item.id = next;
       used.add(next);
       next += 1;
     }
-  });
+  }
 }
 
 // Positions are relative to the parent: topics restart at 1 inside every sheet
@@ -42,66 +54,89 @@ function assignIds(list) {
 // the whole list, so each group is sorted by its current position (ties keep
 // the file order) and renumbered 1..n on its own.
 function assignPositions(list, groupKey) {
-  const groups = new Map();
-  list.forEach((item) => {
-    const key = groupKey ? item[groupKey] : null;
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(item);
-  });
-  groups.forEach((group) => {
-    const ordered = group
-      .map((item, index) => ({ item, index, position: asNumber(item.position) }))
-      .sort((a, b) => a.position - b.position || a.index - b.index);
-    ordered.forEach(({ item }, index) => {
-      item.position = index + 1;
+  if (!groupKey) {
+    // Sheets: single group, no Map needed. Stable sort by position.
+    const order = new Array(list.length);
+    for (let i = 0; i < list.length; i++) order[i] = i;
+    order.sort((a, b) => {
+      const pa = asNumber(list[a].position);
+      const pb = asNumber(list[b].position);
+      return pa - pb || a - b;
     });
-  });
+    for (let rank = 0; rank < order.length; rank++) {
+      list[order[rank]].position = rank + 1;
+    }
+    return;
+  }
+  const groups = new Map();
+  for (let i = 0; i < list.length; i++) {
+    const item = list[i];
+    const key = item[groupKey];
+    let group = groups.get(key);
+    if (!group) {
+      group = [];
+      groups.set(key, group);
+    }
+    group.push(i);
+  }
+  for (const group of groups.values()) {
+    group.sort((a, b) => asNumber(list[a].position) - asNumber(list[b].position) || a - b);
+    for (let rank = 0; rank < group.length; rank++) {
+      list[group[rank]].position = rank + 1;
+    }
+  }
 }
-
-const pick = (source, keys) => {
-  const target = {};
-  keys.forEach((key) => {
-    target[key] = source[key];
-  });
-  return target;
-};
 
 export function normalizeData(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     throw new Error('the file must contain a JSON object like {"sheets":[],"topics":[],"problems":[]}');
   }
 
-  const sheets = (Array.isArray(raw.sheets) ? raw.sheets : [])
-    .map((sheet) => pick(sheet || {}, ['id', 'position', 'sheet', 'username']))
-    .map((sheet) => ({
-      ...sheet,
-      sheet: asText(sheet.sheet),
-      username: asText(sheet.username),
-    }));
+  const rawSheets = Array.isArray(raw.sheets) ? raw.sheets : [];
+  const rawTopics = Array.isArray(raw.topics) ? raw.topics : [];
+  const rawProblems = Array.isArray(raw.problems) ? raw.problems : [];
 
-  const topics = (Array.isArray(raw.topics) ? raw.topics : [])
-    .map((topic) => pick(topic || {}, ['id', 'position', 'topic', 'sheetId']))
-    .map((topic) => ({
-      ...topic,
-      topic: asText(topic.topic),
-      sheetId: asNumber(topic.sheetId),
-    }));
-
-  const problems = (Array.isArray(raw.problems) ? raw.problems : [])
-    .map((problem) => pick(problem || {}, ['id', 'position', 'title', 'difficulty', 'link', 'hint', 'notes', 'solution', 'topicId']))
-    .map((problem) => ({
-      ...problem,
-      title: asText(problem.title),
-      difficulty: asNumber(problem.difficulty),
-      link: asText(problem.link),
-      hint: asText(problem.hint),
-      notes: asText(problem.notes),
-      solution: asText(problem.solution),
-      topicId: asNumber(problem.topicId),
-    }));
-
-  if (sheets.length === 0 && topics.length === 0 && problems.length === 0) {
+  if (rawSheets.length === 0 && rawTopics.length === 0 && rawProblems.length === 0) {
     throw new Error('no sheets, topics or problems were found in the file');
+  }
+
+  // Single pass per list: no intermediate pick/spread objects.
+  const sheets = new Array(rawSheets.length);
+  for (let i = 0; i < rawSheets.length; i++) {
+    const s = rawSheets[i] || {};
+    sheets[i] = {
+      id: s.id,
+      position: s.position,
+      sheet: asText(s.sheet),
+      username: asText(s.username),
+    };
+  }
+
+  const topics = new Array(rawTopics.length);
+  for (let i = 0; i < rawTopics.length; i++) {
+    const t = rawTopics[i] || {};
+    topics[i] = {
+      id: t.id,
+      position: t.position,
+      topic: asText(t.topic),
+      sheetId: asNumber(t.sheetId),
+    };
+  }
+
+  const problems = new Array(rawProblems.length);
+  for (let i = 0; i < rawProblems.length; i++) {
+    const p = rawProblems[i] || {};
+    problems[i] = {
+      id: p.id,
+      position: p.position,
+      title: asText(p.title),
+      difficulty: asNumber(p.difficulty),
+      link: asText(p.link),
+      hint: asText(p.hint),
+      notes: asText(p.notes),
+      solution: asText(p.solution),
+      topicId: asNumber(p.topicId),
+    };
   }
 
   assignIds(sheets);

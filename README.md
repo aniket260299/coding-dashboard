@@ -32,8 +32,9 @@ npm run preview  # serves dist/ on http://localhost:3000
    `coding_dashboard_backend/src/main/resources/coding_dashboard_export.txt`
    works as-is, and a copy is bundled so you can click *Load bundled sample
    data* to try it immediately.
-2. **Render.** Sheets → topics → problems, exactly like before (AG Grid lists,
-   difficulty colours, Ace editor for solutions). The header *Load file* button
+2. **Render.** Sheets → topics → problems with native tables, deferred
+   search, progressive rendering, difficulty badges and a lazily loaded
+   CodeMirror 6 Java editor for solutions. The header *Load file* button
    swaps the dataset at any time.
 3. **Edit.** Add / edit / delete sheets, topics and problems. Deleting a sheet
    or topic also removes its children. Edits live in memory (mirrored to
@@ -65,12 +66,19 @@ npm run preview  # serves dist/ on http://localhost:3000
 ```
 src/
   data/
-    DataContext.jsx   in-memory store: load, CRUD with cascade, save, persistence
+    DataContext.jsx   reducer store with indexed lookups, debounced persistence
     fileIO.js         file picker / drag-drop / write-back / download helpers
-    normalize.js      validates + normalises the loaded JSON
-    sample-data.txt   bundled sample export
+    normalize.js      validates + normalises the loaded JSON (single-pass)
+    sample-data.txt   bundled sample export (lazy-loaded, not in initial bundle)
   Component/
     LoadData.jsx      first-run "open a data file" screen
     Header.jsx        file name, Save, Load file, status messages
-    sheet/  topic/  problem/   list, view and edit pages (AG Grid + Ace)
+    sheet/  topic/  problem/   list, view and edit pages (native table + CodeMirror)
+    common/
+      ListTable.jsx   lightweight native table (replaces AG Grid)
+      CodeEditor.jsx  lazy CodeMirror 6 wrapper (read-only + edit modes)
+      PageHeader.jsx  memoised breadcrumbs + title + actions
+      DifficultyBadge.jsx  memoised difficulty pill
+      useFilePicker.js  shared file-picker hook
+      Utils.js        position helpers, deferred search, ID-only routes
 ```
