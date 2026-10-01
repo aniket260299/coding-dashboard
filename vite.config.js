@@ -15,16 +15,15 @@ export default defineConfig({
     cssCodeSplit: true,
     reportCompressedSize: true,
     chunkSizeWarningLimit: 400,
-    minify: 'esbuild',
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        manualChunks(id) {
-          if (!id.includes('node_modules')) return undefined;
-          if (id.includes('react-router')) return 'router';
-          if (id.includes('react-dom') || /(^|\/)react\//.test(id) || id.includes('/react/') || id.includes('scheduler'))
-            return 'vendor';
-          if (id.includes('@codemirror') || id.includes('@lezer') || id.includes('@marijn')) return 'editor';
-          return 'deps';
+        codeSplitting: {
+          groups: [
+            { name: 'router', test: /node_modules\/(react-router|@remix-run)\// },
+            { name: 'vendor', test: /node_modules\/(react|react-dom|scheduler)\// },
+            { name: 'editor', test: /node_modules\/(@codemirror|@lezer|@marijn)\// },
+            { name: 'deps', test: /node_modules\// },
+          ],
         },
       },
     },
