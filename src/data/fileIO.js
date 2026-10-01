@@ -3,10 +3,12 @@
 
 const DATA_TYPES = [
   {
-    description: 'Coding dashboard data',
-    accept: { 'text/plain': ['.txt'], 'application/json': ['.json'] },
+    description: 'Coding dashboard data (JSON)',
+    accept: { 'application/json': ['.json'] },
   },
 ];
+
+export const DEFAULT_FILE_NAME = 'coding_dashboard_export.json';
 
 export function supportsFilePicker() {
   return typeof window !== 'undefined' && typeof window.showOpenFilePicker === 'function';
@@ -55,7 +57,7 @@ export async function writeToHandle(handle, text) {
 /** Lets the user choose the destination file, writes to it, returns the new handle. */
 export async function pickDestinationAndWrite(text, suggestedName) {
   const handle = await window.showSaveFilePicker({
-    suggestedName: suggestedName || 'coding_dashboard_export.txt',
+    suggestedName: suggestedName || DEFAULT_FILE_NAME,
     types: DATA_TYPES,
   });
   await writeToHandle(handle, text);
@@ -68,7 +70,7 @@ export function downloadText(text, fileName) {
   const url = window.URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = fileName || 'coding_dashboard_export.txt';
+  anchor.download = fileName || DEFAULT_FILE_NAME;
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();

@@ -4,10 +4,17 @@ import { fileFromDataTransfer } from '../data/fileIO';
 import { useFilePicker } from './common/useFilePicker';
 
 const SAMPLE_FORMAT = `{
-  "sheets":   [{ "id": 1, "position": 1, "sheet": "LeetCode - Top Interview 150", "username": "you" }],
-  "topics":   [{ "id": 1, "position": 1, "topic": "Array | String", "sheetId": 1 }],
-  "problems": [{ "id": 1, "position": 1, "title": "Merge Sorted Array", "difficulty": 1,
-                 "link": "...", "hint": "...", "notes": "...", "solution": "...", "topicId": 1 }]
+  "version": 2,
+  "sheets": [
+    { "id": 1, "position": 1, "sheet": "LeetCode - Top Interview 150", "username": "you",
+      "topics": [
+        { "id": 1, "position": 1, "topic": "Array | String",
+          "problems": [
+            { "id": 1, "position": 1, "title": "Merge Sorted Array", "difficulty": 1,
+              "link": "...", "hint": "...", "notes": "...", "solution": "..." }
+          ] }
+      ] }
+  ]
 }`;
 
 const LoadData = memo(function LoadData() {
@@ -49,10 +56,13 @@ const LoadData = memo(function LoadData() {
             </svg>
           </div>
           <h1>Open a data file</h1>
-          <p>No login - this dashboard reads everything from a file you choose. Pick a file, or drag and drop it right here.</p>
+          <p>
+            No login - this dashboard reads everything from a <b>.json</b> file you choose. Pick a
+            file, or drag and drop it right here.
+          </p>
           <div className="empty-state__actions">
             <button type="button" className="btn btn-primary" onClick={pickDataFile}>
-              Choose data file
+              Choose JSON file
             </button>
             <button type="button" className="btn btn-ghost" onClick={loadSample}>
               Load bundled sample data
@@ -63,11 +73,11 @@ const LoadData = memo(function LoadData() {
             ref={inputRef}
             onChange={handleFileInput}
             type="file"
-            accept=".txt,.json,application/json,text/plain"
+            accept=".json,application/json"
           />
 
           <details className="format-details">
-            <summary>▸ Expected JSON format</summary>
+            <summary>▸ Expected JSON format (v2, nested)</summary>
             <pre>{SAMPLE_FORMAT}</pre>
           </details>
         </div>

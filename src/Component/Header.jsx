@@ -70,7 +70,7 @@ const Header = memo(function Header() {
         ref={inputRef}
         onChange={handleFileInput}
         type="file"
-        accept=".txt,.json,application/json,text/plain"
+        accept=".json,application/json"
       />
     </header>
   );

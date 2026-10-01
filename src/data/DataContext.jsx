@@ -1,56 +1,33 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { downloadText, pickDestinationAndWrite, writeToHandle } from './fileIO';
-import { asNumber, asText, normalizeData } from './normalize';
+import { DEFAULT_FILE_NAME, downloadText, pickDestinationAndWrite, writeToHandle } from './fileIO';
+import { assertV2Format, asNumber, asText, buildIndexes, normalizeData } from './normalize';
+import { toV2 } from './serialize';
+import { clearSession, loadSession, saveSession } from './storage';
 
-// In-memory store: everything comes from the loaded file, edits update
-// this state, and "Save" writes it back to a data file.
+// In-memory store: everything comes from the loaded v2 file, edits update
+// this state, and "Save" writes it back as a nested v2 JSON file. The last
+// session is mirrored into IndexedDB (see storage.js) so a refresh keeps it.
 
-const STORAGE_KEY = 'coding-dashboard-data';
-const DEFAULT_FILE_NAME = 'coding_dashboard_export.txt';
-
-const EMPTY_DATA = { sheets: [], topics: [], problems: [] };
+const EMPTY_LISTS = { sheets: [], topics: [], problems: [] };
+const EMPTY_INDEXES = buildIndexes([], [], []);
 
 const DataContext = createContext(null);
 
-function readStoredState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    const data = normalizeData(parsed);
-    return {
-      data,
-      fileName: typeof parsed.fileName === 'string' && parsed.fileName ? parsed.fileName : DEFAULT_FILE_NAME,
-    };
-  } catch {
-    return null;
-  }
-}
-
-function maxIdOf(list) {
-  let max = 0;
-  for (let i = 0; i < list.length; i++) {
-    const id = list[i].id;
-    if (id > max) max = id;
-  }
-  return max;
-}
-
-function withMaxIds(data) {
-  return {
-    ...data,
-    maxSheetId: maxIdOf(data.sheets),
-    maxTopicId: maxIdOf(data.topics),
-    maxProblemId: maxIdOf(data.problems),
-  };
-}
+/** Cheap extension/MIME check - every load path funnels through loadFromFile. */
+const isJsonFile = (file) =>
+  typeof file?.name === 'string' && (/\.json$/i.test(file.name) || file.type === 'application/json');
 
 function initialState() {
-  const stored = readStoredState();
-  if (stored) {
-    return { loaded: true, dirty: false, ...withMaxIds(stored.data), fileName: stored.fileName };
-  }
-  return { loaded: false, dirty: false, ...withMaxIds(EMPTY_DATA), fileName: DEFAULT_FILE_NAME };
+  return {
+    loaded: false,
+    dirty: false,
+    ...EMPTY_LISTS,
+    indexes: EMPTY_INDEXES,
+    maxSheetId: 0,
+    maxTopicId: 0,
+    maxProblemId: 0,
+    fileName: DEFAULT_FILE_NAME,
+  };
 }
 
 const cleanSheet = (sheet) => ({
@@ -101,56 +78,89 @@ function reducer(state, action) {
       return {
         loaded: true,
         dirty: false,
-        ...withMaxIds(action.data),
+        sheets: action.data.sheets,
+        topics: action.data.topics,
+        problems: action.data.problems,
+        indexes: action.data.indexes,
+        maxSheetId: action.data.maxIds.maxSheetId,
+        maxTopicId: action.data.maxIds.maxTopicId,
+        maxProblemId: action.data.maxIds.maxProblemId,
         fileName: action.fileName,
       };
-    case 'CLEAR': {
-      const fresh = initialState();
-      // initialState reads localStorage — force a clean slate instead.
-      return { loaded: false, dirty: false, ...withMaxIds(EMPTY_DATA), fileName: fresh.fileName };
-    }
+    case 'CLEAR':
+      // Storage is cleared by clearData(); force a clean slate.
+      return initialState();
     case 'MARK_CLEAN':
       return state.dirty ? { ...state, dirty: false } : state;
     case 'SET_FILENAME':
       return { ...state, fileName: action.fileName };
     case 'UPSERT_SHEET': {
       const { list, maxId } = upsertInto(state.sheets, cleanSheet(action.record), 'maxSheetId', state);
-      return { ...state, dirty: true, sheets: list, maxSheetId: maxId };
+      return {
+        ...state,
+        dirty: true,
+        sheets: list,
+        maxSheetId: maxId,
+        indexes: buildIndexes(list, state.topics, state.problems),
+      };
     }
     case 'DELETE_SHEET': {
       const removedTopicIds = new Set();
       for (const t of state.topics) {
         if (t.sheetId === action.sheetId) removedTopicIds.add(t.id);
       }
+      const sheets = state.sheets.filter((s) => s.id !== action.sheetId);
+      const topics = state.topics.filter((t) => t.sheetId !== action.sheetId);
+      const problems = state.problems.filter((p) => !removedTopicIds.has(p.topicId));
       return {
         ...state,
         dirty: true,
-        sheets: state.sheets.filter((s) => s.id !== action.sheetId),
-        topics: state.topics.filter((t) => t.sheetId !== action.sheetId),
-        problems: state.problems.filter((p) => !removedTopicIds.has(p.topicId)),
+        sheets,
+        topics,
+        problems,
+        indexes: buildIndexes(sheets, topics, problems),
       };
     }
     case 'UPSERT_TOPIC': {
       const { list, maxId } = upsertInto(state.topics, cleanTopic(action.record), 'maxTopicId', state);
-      return { ...state, dirty: true, topics: list, maxTopicId: maxId };
-    }
-    case 'DELETE_TOPIC':
       return {
         ...state,
         dirty: true,
-        topics: state.topics.filter((t) => t.id !== action.topicId),
-        problems: state.problems.filter((p) => p.topicId !== action.topicId),
+        topics: list,
+        maxTopicId: maxId,
+        indexes: buildIndexes(state.sheets, list, state.problems),
       };
+    }
+    case 'DELETE_TOPIC': {
+      const topics = state.topics.filter((t) => t.id !== action.topicId);
+      const problems = state.problems.filter((p) => p.topicId !== action.topicId);
+      return {
+        ...state,
+        dirty: true,
+        topics,
+        problems,
+        indexes: buildIndexes(state.sheets, topics, problems),
+      };
+    }
     case 'UPSERT_PROBLEM': {
       const { list, maxId } = upsertInto(state.problems, cleanProblem(action.record), 'maxProblemId', state);
-      return { ...state, dirty: true, problems: list, maxProblemId: maxId };
-    }
-    case 'DELETE_PROBLEM':
       return {
         ...state,
         dirty: true,
-        problems: state.problems.filter((p) => p.id !== action.problemId),
+        problems: list,
+        maxProblemId: maxId,
+        indexes: buildIndexes(state.sheets, state.topics, list),
       };
+    }
+    case 'DELETE_PROBLEM': {
+      const problems = state.problems.filter((p) => p.id !== action.problemId);
+      return {
+        ...state,
+        dirty: true,
+        problems,
+        indexes: buildIndexes(state.sheets, state.topics, problems),
+      };
+    }
     default:
       return state;
   }
@@ -160,6 +170,7 @@ export function DataProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
   const [handle, setHandle] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [hydrating, setHydrating] = useState(true);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
 
@@ -170,52 +181,42 @@ export function DataProvider({ children }) {
   const handleRef = useRef(handle);
   handleRef.current = handle;
 
-  // Debounced persistence: avoid JSON.stringify on every render,
-  // only persist 400ms after the last change.
+  // Restore the previous session once, before the UI becomes interactive.
+  // IndexedDB reads are async, so the first paint waits behind `hydrating`
+  // (App shows the loading spinner) instead of a synchronous localStorage hit.
   useEffect(() => {
-    if (!state.loaded) return;
-    const timer = window.setTimeout(() => {
+    let cancelled = false;
+    (async () => {
       try {
-        const { sheets, topics, problems, fileName } = stateRef.current;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ sheets, topics, problems, fileName }));
-      } catch (storageError) {
-        console.warn('could not persist data to localStorage:', storageError);
+        const stored = await loadSession();
+        if (cancelled || !stored) return;
+        const data = normalizeData(stored); // flat persisted shape, zero-copy
+        dispatch({
+          type: 'LOAD',
+          data,
+          fileName: typeof stored.fileName === 'string' && stored.fileName ? stored.fileName : DEFAULT_FILE_NAME,
+        });
+      } catch (restoreError) {
+        console.warn('could not restore the previous session:', restoreError);
+      } finally {
+        if (!cancelled) setHydrating(false);
       }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Debounced persistence: one IndexedDB write 400ms after the last change,
+  // never on every render/keystroke.
+  useEffect(() => {
+    if (!state.loaded || hydrating) return;
+    const timer = window.setTimeout(() => {
+      const { sheets, topics, problems, fileName } = stateRef.current;
+      saveSession({ sheets, topics, problems, fileName });
     }, 400);
     return () => window.clearTimeout(timer);
-  }, [state.sheets, state.topics, state.problems, state.fileName, state.loaded]);
-
-  // --- Indexed lookups (O(1) instead of filter+find per render) ---
-  const indexes = useMemo(() => {
-    const sheetsById = new Map();
-    for (const s of state.sheets) sheetsById.set(s.id, s);
-    const topicsById = new Map();
-    const topicsBySheet = new Map();
-    for (const t of state.topics) {
-      topicsById.set(t.id, t);
-      let group = topicsBySheet.get(t.sheetId);
-      if (!group) {
-        group = [];
-        topicsBySheet.set(t.sheetId, group);
-      }
-      group.push(t);
-    }
-    for (const group of topicsBySheet.values()) group.sort((a, b) => a.position - b.position);
-    const problemsById = new Map();
-    const problemsByTopic = new Map();
-    for (const p of state.problems) {
-      problemsById.set(p.id, p);
-      let group = problemsByTopic.get(p.topicId);
-      if (!group) {
-        group = [];
-        problemsByTopic.set(p.topicId, group);
-      }
-      group.push(p);
-    }
-    for (const group of problemsByTopic.values()) group.sort((a, b) => a.position - b.position);
-    const sortedSheets = [...state.sheets].sort((a, b) => a.position - b.position);
-    return { sheetsById, topicsById, topicsBySheet, problemsById, problemsByTopic, sortedSheets };
-  }, [state.sheets, state.topics, state.problems]);
+  }, [state.sheets, state.topics, state.problems, state.fileName, state.loaded, hydrating]);
 
   const data = useMemo(
     () => ({ sheets: state.sheets, topics: state.topics, problems: state.problems }),
@@ -246,10 +247,13 @@ export function DataProvider({ children }) {
       setBusy(true);
       setError('');
       try {
+        if (!isJsonFile(file)) throw new Error('only .json files are accepted');
         const text = await file.text();
         // Yield once so the loading spinner paints before the blocking parse.
         await new Promise((resolve) => setTimeout(resolve, 0));
-        loadFromObject(JSON.parse(text), file.name, fileHandle);
+        const raw = JSON.parse(text);
+        assertV2Format(raw);
+        loadFromObject(raw, file.name, fileHandle);
       } catch (loadError) {
         const message =
           loadError instanceof SyntaxError ? 'the file is not valid JSON' : loadError.message;
@@ -267,8 +271,8 @@ export function DataProvider({ children }) {
     try {
       // Dynamic import keeps the 200KB sample out of the initial bundle —
       // it is fetched only when the user clicks "Load sample".
-      const mod = await import('./sample-data.txt?raw');
-      loadFromObject(JSON.parse(mod.default), 'sample-data.txt', null);
+      const mod = await import('./sample-data.json?raw');
+      loadFromObject(JSON.parse(mod.default), 'sample-data.json', null);
     } catch (sampleError) {
       setError(`Could not load the bundled sample data: ${sampleError.message}.`);
     } finally {
@@ -277,11 +281,7 @@ export function DataProvider({ children }) {
   }, [loadFromObject]);
 
   const clearData = useCallback(() => {
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      // ignore
-    }
+    clearSession();
     dispatch({ type: 'CLEAR' });
     setHandle(null);
     setStatus('');
@@ -293,7 +293,7 @@ export function DataProvider({ children }) {
   const save = useCallback(async () => {
     setError('');
     const current = stateRef.current;
-    const text = JSON.stringify({ sheets: current.sheets, topics: current.topics, problems: current.problems });
+    const text = JSON.stringify(toV2(current));
     const fileName = current.fileName;
     const currentHandle = handleRef.current;
     try {
@@ -334,9 +334,10 @@ export function DataProvider({ children }) {
       dirty: state.dirty,
       fileName: state.fileName,
       busy,
+      hydrating,
       status,
       error,
-      ...indexes,
+      ...state.indexes,
       loadFromFile,
       loadSample,
       clearData,
@@ -354,10 +355,11 @@ export function DataProvider({ children }) {
       state.loaded,
       state.dirty,
       state.fileName,
+      state.indexes,
       busy,
+      hydrating,
       status,
       error,
-      indexes,
       loadFromFile,
       loadSample,
       clearData,

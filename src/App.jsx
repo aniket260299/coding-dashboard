@@ -10,13 +10,13 @@ import { useData } from './data/DataContext';
 import './App.css';
 
 const App = () => {
-  const { loaded, busy } = useData();
+  const { loaded, busy, hydrating } = useData();
 
   return (
     <div className="app">
       <Header />
       <main className="app__main">
-        {busy ? (
+        {busy || hydrating ? (
           <div className="loading-screen">
             <div className="loading-screen__spinner"></div>
             <span className="loading-screen__label">Loading data…</span>
