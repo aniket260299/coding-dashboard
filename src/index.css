@@ -792,6 +792,46 @@ a.crumbs__item:hover {
   text-decoration: none;
 }
 
+/* icon-only variant (square) with hover tooltip */
+.action-cell__btn--icon {
+  position: relative;
+  padding: 0.3rem;
+}
+
+.action-cell__btn--icon svg {
+  width: 15px;
+  height: 15px;
+  display: block;
+}
+
+.action-cell__btn[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.22rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s ease, visibility 0.12s ease;
+  z-index: 5;
+}
+
+.action-cell__btn[data-tooltip]:hover::after,
+.action-cell__btn[data-tooltip]:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
+}
+
 .action-cell__btn--open {
   background: var(--accent-soft);
   border-color: rgba(109, 140, 255, 0.32);
@@ -816,18 +856,63 @@ a.crumbs__item:hover {
 /* --- in-grid links --------------------------------------------------- */
 
 .link-cell {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
   color: var(--text);
   font-weight: 500;
+}
+
+.link-cell__text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.link-cell:hover {
+.link-cell a:not(.link-cell__ext) {
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+/* sheet/topic cells: the whole cell is the anchor */
+a.link-cell:hover {
   color: #93a8ff;
+}
+
+a.link-cell:hover .link-cell__text {
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+/* problem cells: name and external-link icon highlight independently */
+.link-cell a:hover {
+  color: #93a8ff;
+}
+
+.link-cell a:hover .link-cell__text {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.link-cell__ext {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  color: var(--text-dim);
+  transition: color 0.15s ease;
+}
+
+.link-cell__ext svg {
+  width: 13px;
+  height: 13px;
+  display: block;
+}
+
+.link-cell__ext:hover {
+  color: #93a8ff;
 }
 
 .link-cell--plain {
@@ -837,6 +922,10 @@ a.crumbs__item:hover {
 
 .link-cell--plain:hover {
   color: var(--text);
+  text-decoration: none;
+}
+
+.link-cell--plain:hover .link-cell__text {
   text-decoration: none;
 }
 
